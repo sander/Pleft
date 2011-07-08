@@ -38,10 +38,7 @@ from plapp import forms
 from plapp import models
 
 def _get_appointment_or_404(request):
-    if request.method == 'POST':
-        params = request.POST
-    else:
-        params = request.GET
+    params = request.REQUEST
 
     if not 'id' in params:
         raise http.Http404
@@ -97,17 +94,12 @@ def create(request):
 
         if form.cleaned_data['dates'][0] != '':
             for input in form.cleaned_data['dates']:
-                date = models.Date(appointment=appointment)
+                date = models.Date(appointment=appointment, invitee = owner)
                 date.date_time = datetime.datetime.strptime(input,
                                                             '%Y-%m-%dT%H:%M:%S')
-                date.invitee = owner
                 date.save()
 
-                avail = models.Availability()
-                avail.date = date
-                avail.invitee = owner
-                avail.possible = 1 
-                avail.save()
+                models.Availability(date=date, invitee=owner,possible=True).save()
 
         if validate == True:
             plapp.send_mail(
@@ -335,17 +327,12 @@ def add_dates(request):
         not appointment.propose_more):
         raise http.Http404
 
-    date = models.Date(appointment=appointment)
+    date = models.Date(appointment=appointment, invitee = invitee)
     date.date_time = datetime.datetime.strptime(request.POST['d'],
                                                 '%Y-%m-%dT%H:%M:%S')
-    date.invitee = invitee
     date.save()
 
-    avail = models.Availability()
-    avail.date = date
-    avail.invitee = invitee 
-    avail.possible = 1 
-    avail.save()
+    models.Availability(date=date, invitee=invitee, possible=True).save()
 
     # Remove dates from cache. Would be nicer to add the current date, but that would need re-ordering.
     dates_key = plapp.get_cache_key('dates', appointment=appointment.id)
@@ -371,11 +358,7 @@ def set_availability(request):
         date = models.Date.objects.all().get(id=int(datestring))
         i += 1
 
-        try:
-            avail = models.Availability.objects.all().get(date=date, invitee=invitee)
-        except exceptions.ObjectDoesNotExist:
-            avail = models.Availability(date=date, invitee=invitee)
-
+        avail = models.Availability.objects.all().get_or_create(date=date, invitee=invitee)
         avail.possible = int(possible)
         avail.comment = comment
         avail.save()
