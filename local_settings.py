@@ -30,4 +30,4 @@ EMAIL_HOST = 'localhost'
 EMAIL_PORT = 8025
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-MEDIA_ROOT = '/home/sander/hg/pleft/static'
+MEDIA_ROOT = '/Library/WebServer/Documents/pleft/'
