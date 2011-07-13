@@ -40,20 +40,16 @@ from plapp import models
 def _get_appointment_or_404(request):
     params = request.REQUEST
 
-    if not 'id' in params:
-        raise http.Http404
+    if not 'id' in params: raise http.Http404
 
     appointment = models.Appointment.objects.all().get(id=int(params['id']))
-    if not appointment or not appointment.visible:
-        raise http.Http404
+    if not appointment or not appointment.visible: raise http.Http404
 
     user = plauth.models.User.get_signed_in(request)
-    if not user:
-        raise exceptions.PermissionDenied
+    if not user: raise exceptions.PermissionDenied
 
     invitee = models.Invitee.objects.all().get(appointment=appointment, user=user)
-    if not invitee:
-        raise http.Http404
+    if not invitee: raise http.Http404
 
     return (appointment, user, invitee)
 
@@ -212,8 +208,7 @@ def appointment_list(request):
 @never_cache
 def appointment_menu(request):
     user = plauth.models.User.get_signed_in(request)
-    if not user:
-        raise exceptions.PermissionDenied
+    if not user: raise exceptions.PermissionDenied
 
     memkey = plapp.get_menu_cache_key(user)
     data = cache.get(memkey)
@@ -238,19 +233,15 @@ def archive(request):
 
 def verify(request):
     import logging
-    if not 'id' in request.GET:
-        raise http.Http404
+    if not 'id' in request.GET: raise http.Http404
 
     appointment = models.Appointment.objects.all().get(id=int(request.GET['id']))
-    if not appointment:
-        raise http.Http404
+    if not appointment: raise http.Http404
 
     user = plauth.models.User.get_signed_in(request)
-    if not user:
-        raise http.Http404
+    if not user: raise http.Http404
 
-    if appointment.initiator != user:
-        return http.Http404
+    if appointment.initiator != user: return http.Http404
 
     if not appointment.visible:
         appointment.visible = True
@@ -271,8 +262,7 @@ def resend_invitation(request):
         raise http.Http404
 
     invitee = models.Invitee.objects.all().get(id=int(request.POST['invitee']))
-    if invitee.appointment != appointment:
-        raise http.Http404
+    if invitee.appointment != appointment: raise http.Http404
 
     initiator = models.Invitee.objects.all().get(user=user,
                                                  appointment=appointment)
