@@ -38,25 +38,18 @@ from plapp import forms
 from plapp import models
 
 def _get_appointment_or_404(request):
-    if request.method == 'POST':
-        params = request.POST
-    else:
-        params = request.GET
+    params = request.REQUEST
 
-    if not 'id' in params:
-        raise http.Http404
+    if not 'id' in params: raise http.Http404
 
     appointment = models.Appointment.objects.all().get(id=int(params['id']))
-    if not appointment or not appointment.visible:
-        raise http.Http404
+    if not appointment or not appointment.visible: raise http.Http404
 
     user = plauth.models.User.get_signed_in(request)
-    if not user:
-        raise exceptions.PermissionDenied
+    if not user: raise exceptions.PermissionDenied
 
     invitee = models.Invitee.objects.all().get(appointment=appointment, user=user)
-    if not invitee:
-        raise http.Http404
+    if not invitee: raise http.Http404
 
     return (appointment, user, invitee)
 
@@ -97,17 +90,12 @@ def create(request):
 
         if form.cleaned_data['dates'][0] != '':
             for input in form.cleaned_data['dates']:
-                date = models.Date(appointment=appointment)
+                date = models.Date(appointment=appointment, invitee = owner)
                 date.date_time = datetime.datetime.strptime(input,
                                                             '%Y-%m-%dT%H:%M:%S')
-                date.invitee = owner
                 date.save()
 
-                avail = models.Availability()
-                avail.date = date
-                avail.invitee = owner
-                avail.possible = 1 
-                avail.save()
+                models.Availability(date=date, invitee=owner,possible=True).save()
 
         if validate == True:
             plapp.send_mail(
@@ -217,8 +205,7 @@ def appointment_list(request):
 @never_cache
 def appointment_menu(request):
     user = plauth.models.User.get_signed_in(request)
-    if not user:
-        raise exceptions.PermissionDenied
+    if not user: raise exceptions.PermissionDenied
 
     memkey = plapp.get_menu_cache_key(user)
     data = cache.get(memkey)
@@ -243,19 +230,15 @@ def archive(request):
 
 def verify(request):
     import logging
-    if not 'id' in request.GET:
-        raise http.Http404
+    if not 'id' in request.GET: raise http.Http404
 
     appointment = models.Appointment.objects.all().get(id=int(request.GET['id']))
-    if not appointment:
-        raise http.Http404
+    if not appointment: raise http.Http404
 
     user = plauth.models.User.get_signed_in(request)
-    if not user:
-        raise http.Http404
+    if not user: raise http.Http404
 
-    if appointment.initiator != user:
-        return http.Http404
+    if appointment.initiator != user: return http.Http404
 
     if not appointment.visible:
         appointment.visible = True
@@ -276,8 +259,7 @@ def resend_invitation(request):
         raise http.Http404
 
     invitee = models.Invitee.objects.all().get(id=int(request.POST['invitee']))
-    if invitee.appointment != appointment:
-        raise http.Http404
+    if invitee.appointment != appointment: raise http.Http404
 
     initiator = models.Invitee.objects.all().get(user=user,
                                                  appointment=appointment)
@@ -332,17 +314,12 @@ def add_dates(request):
         not appointment.propose_more):
         raise http.Http404
 
-    date = models.Date(appointment=appointment)
+    date = models.Date(appointment=appointment, invitee = invitee)
     date.date_time = datetime.datetime.strptime(request.POST['d'],
                                                 '%Y-%m-%dT%H:%M:%S')
-    date.invitee = invitee
     date.save()
 
-    avail = models.Availability()
-    avail.date = date
-    avail.invitee = invitee 
-    avail.possible = 1 
-    avail.save()
+    models.Availability(date=date, invitee=invitee, possible=True).save()
 
     # Remove dates from cache. Would be nicer to add the current date, but that would need re-ordering.
     dates_key = plapp.get_cache_key('dates', appointment=appointment.id)
@@ -368,11 +345,7 @@ def set_availability(request):
         date = models.Date.objects.all().get(id=int(datestring))
         i += 1
 
-        try:
-            avail = models.Availability.objects.all().get(date=date, invitee=invitee)
-        except exceptions.ObjectDoesNotExist:
-            avail = models.Availability(date=date, invitee=invitee)
-
+        avail = models.Availability.objects.all().get_or_create(date=date, invitee=invitee)
         avail.possible = int(possible)
         avail.comment = comment
         avail.save()
